@@ -1,3 +1,0 @@
-/home/josue/Code/compi/Go/build/CMakeFiles/Gol.dir
-/home/josue/Code/compi/Go/build/CMakeFiles/edit_cache.dir
-/home/josue/Code/compi/Go/build/CMakeFiles/rebuild_cache.dir
