@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/Gol.dir/main.cpp.o CMakeFiles/Gol.dir/lexer.cpp.o -o Gol 
