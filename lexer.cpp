@@ -205,7 +205,15 @@ Lexeme Lexer::nextToken(const bool getText){
                     Lexeme l = {Token::STRING, s.str()};
                     print(getText,l);
                     return l;
-                } else {
+                }else if(ch == '\\'){
+                    s << ch;
+                    consume();
+                    state = 16;
+                }else if(ch == '\n' || ch == EOF) {
+                    Lexeme l = {Token::UNK, s.str()};
+                    print(getText,l);
+                    return l;
+                }else {
                     s << ch;
                     consume();
                     state = 9;
@@ -218,7 +226,7 @@ Lexeme Lexer::nextToken(const bool getText){
                     Lexeme l = {Token::STRING, s.str()};
                     print(getText,l);
                     return l;
-                } else if(ch == EOF){
+                } else if(ch == '\n' || ch == EOF){
                     Lexeme l = {Token::UNK, s.str()};
                     print(getText,l);
                     return l;
@@ -299,6 +307,17 @@ Lexeme Lexer::nextToken(const bool getText){
                     return l;
                 }
             break;
+            case 16:
+                if(ch == 'n' || ch == 't' || ch == '\\' || ch == '"'){
+                    s << ch;
+                    consume();
+                    state = 9;
+                } else {
+                    Lexeme l = {Token::UNK, s.str()};
+                    print(getText,l);
+                    return l;
+                }
+            break;
         };
     }while(true);
 
@@ -317,7 +336,6 @@ void Lexeme::toString() const {
         case Token::PUNCTUATIONAL: std::cout << "PUNCTUATIONAL: " << txt << std::endl; break;
         case Token::INT: std::cout << "INT: " << txt << std::endl; break;
         case Token::ADDRESS: std::cout << "ADRESS: " << txt << std::endl; break;
-        case Token::SEMICOLON: std::cout << "SEMICOLON: " << txt << std::endl; break;
         case Token::ASSIGN: std::cout << "ASSIGN: " << txt << std::endl; break;
         case Token::SHORT_ASSIGN: std::cout << "SHORT_ASSIGN: " << txt << std::endl; break;
         case Token::BOOLEAN: std::cout << "BOOLEAN: " << txt << std::endl; break;

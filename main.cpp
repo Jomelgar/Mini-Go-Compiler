@@ -1,6 +1,7 @@
 #include<fstream>
 #include<iostream>
 #include"lexer.hpp"
+#include"parser.hpp"
 
 int main(int argc,char* argv[]){
     if(argc < 2){
@@ -14,6 +15,12 @@ int main(int argc,char* argv[]){
     }
     
     Lexer lexer(file);
-    while(lexer.nextToken(true).type != Token::END_OF_FILE);
+    Parser parser(lexer);
+    try {
+        parser.parse(true);
+    } catch(const std::runtime_error& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
     return  0;
 };

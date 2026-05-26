@@ -2,7 +2,7 @@ var maxIter int = 100 ;
 /* IGNORE */
 func clamp(ref x int) {
 if x > maxIter {
-x = maxIter ;
+x = maxIter;
 }
 }
 func main() {

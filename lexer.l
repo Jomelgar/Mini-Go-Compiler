@@ -5,7 +5,7 @@
 -?[0-9]+ {return INT}
 "=" {return ASSIGN};
 ":=" {return SHORT_ASSIGN}
-\"[^"]*\" {return STRING}
+\"([^"\\\n]|\\[\\"nt])*\" {return STRING}
 "=="|"!="|[<>][=]? {return REL_OP}
 [+\-\/*%] {return ARITH_OP}
 [a-zA-Z_][a-zA-Z_0-9]* {return ID;}
