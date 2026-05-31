@@ -25,6 +25,10 @@ void Parser::debugEnter(std::string_view nonterminal, const bool text) const {
     if(text) std::cout << indentSpaces() << "Entering " << nonterminal << std::endl;
 }
 
+void Parser::printCurrent(const bool text) const {
+    if(text) std::cout << indentSpaces() << "Current: " << current.txt << std::endl;
+}
+
 // Program -> (VarDecl | FuncDecl)* EOF
 void Parser::parseProgram(const bool text){
     debugEnter("parseProgram", text);
@@ -57,7 +61,7 @@ void Parser::parseVarDecl(const bool text){
         }
         // (ASSIGN Expr)?
         if(equal(Token::ASSIGN)){
-            consume();
+            consume(text);
             parseExpr(text);
         }
         // PUNCTUATION(';')
@@ -72,7 +76,7 @@ void Parser::parseFuncDecl(const bool text){
     debugEnter("parseFuncDecl", text);
     IndentGuard guard(text);
     if(equal(Token::KEYWORD, "func")){
-        consume();
+        consume(text);
         // ID
         match(Token::ID, text, "parseFuncDecl");
         // PUNCTUATION('(')

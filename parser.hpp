@@ -4,13 +4,22 @@
 #include <string_view>
 #include "lexer.hpp"
 
+/*
+* Soy consciente que algunos lados de esta gramatica les tuve que crear 
+* nuevos no terminales sin embargo se me olvido que aunque factorice lo que no era igual
+* se debe pasar a un nuevo no terminal. Asi que:
+* TODO: En un futuro realizar en otros no terminales lo que no tiene común algo no factorizado.
+* Ej: ID KEYWORD('int' | 'bool') -> ID TYPE; TYPE = int | bool 
+*/
+
 class Parser {
 private:
     Lexer& lexer;
     Lexeme current;
-    void consume(const bool text = false) {current = lexer.nextToken(text);}
+    void consume(const bool text = false) { if(text) printCurrent(text); current = lexer.nextToken(); }
     bool equal(Token expected) const {return current.type == expected;}
     void debugEnter(std::string_view nonterminal, bool text) const;
+    void printCurrent(const bool text) const;
     void match(Token expected, const bool text = false, std::string_view nonterminal = "parser"){
         if(current.type == expected) {
             consume(text);
