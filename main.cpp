@@ -1,7 +1,7 @@
 #include<fstream>
 #include<iostream>
-#include"lexer.hpp"
-#include"parser.hpp"
+#include"./include/lexer.hpp"
+#include"./include/parser.hpp"
 
 int main(int argc,char* argv[]){
     if(argc < 2){

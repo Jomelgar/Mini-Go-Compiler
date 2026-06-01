@@ -3,9 +3,9 @@ project(Gol)
 
 set(CMAKE_CXX_STANDARD 20)
 add_executable( Gol
-    src/main.cpp 
-    src/lexer.hpp 
+    main.cpp 
+    ./include/lexer.hpp 
     src/lexer.cpp
-    src/parser.hpp
+    ./include/parser.hpp
     src/parser.cpp
 )
