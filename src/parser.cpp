@@ -19,6 +19,7 @@ struct IndentGuard {
 //Init -> Program
 void Parser::parse(const bool text){
     parseProgram(text);
+    std::cout << "Syntax is correct!"<< std::endl;
 }
 
 void Parser::debugEnter(std::string_view nonterminal, const bool text) const {
