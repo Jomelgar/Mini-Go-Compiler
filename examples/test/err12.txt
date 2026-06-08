@@ -1,0 +1,8 @@
+// ERROR: Token invalido a nivel de Program
+// Regla: Program -> (VarDecl | FuncDecl)* EOF
+// Solo se permite 'var' o 'func' en el nivel superior; '42' es invalido
+ 
+var x int;
+42;
+func foo() {}
+ 

@@ -1,0 +1,7 @@
+// ERROR: Falta '(' en la declaracion de funcion
+// Regla: FuncDecl -> KEYWORD('func') ID PUNCTUATION('(') ...
+// El parser lanza error en parseFuncDecl al no encontrar '('
+ 
+func miFuncion {
+    var x int;
+}

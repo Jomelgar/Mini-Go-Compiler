@@ -1,0 +1,8 @@
+// ERROR: Falta ')' en CallStmt
+// Regla: CallStmt -> PUNCTUATION('(') (ArgList)? PUNCTUATION(')') SEMICOLON
+// El parser lanza error en parseCallStmt al no encontrar ')'
+ 
+func main() {
+    miFuncion(x, y;
+}
+ 

@@ -1,0 +1,7 @@
+// ERROR: Falta tipo en parametro de funcion
+// Regla: Param -> (KEYWORD('ref'))? ID KEYWORD('int'|'bool')
+// El parser lanza error en parseParam al no encontrar 'int' o 'bool'
+ 
+func sumar(a, b int) int {
+    return a;
+}

@@ -1,0 +1,8 @@
+// ERROR: Falta expresion en ShortDecl
+// Regla: ShortDecl -> SHORT_ASSIGN Expr PUNCTUATION(';')
+// Despues de ':=' el parser espera una Expr, pero encuentra ';'
+ 
+func run() {
+    x := ;
+}
+ 

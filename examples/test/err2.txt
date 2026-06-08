@@ -1,0 +1,5 @@
+// ERROR: Falta el tipo en VarDecl
+// Regla: VarDecl -> ... ID KEYWORD('int'|'bool') ...
+// Despues del ID se espera 'int' o 'bool', pero viene '='
+ 
+var nombre = 10;    

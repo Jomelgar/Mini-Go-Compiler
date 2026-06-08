@@ -1,0 +1,8 @@
+// ERROR: Falta ';' en returnStmt
+// Regla: returnStmt -> KEYWORD('return') (Expr)? SEMICOLON
+// El parser lanza error en parseReturnStmt al no encontrar ';'
+ 
+func getVal() int {
+    return 42
+}
+ 

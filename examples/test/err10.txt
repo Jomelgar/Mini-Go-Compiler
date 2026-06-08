@@ -1,0 +1,8 @@
+// ERROR: Falta argumento en printStmt
+// Regla: printStmt -> ... PUNCTUATION('(') PrintArg (... PrintArg)* ...
+// Despues de '(' se espera al menos un PrintArg, no ')'
+ 
+func main() {
+    print();
+}
+

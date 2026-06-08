@@ -1,0 +1,8 @@
+// ERROR: Falta '}' para cerrar el bloque
+// Regla: Block -> PUNCTUATION('{') (Stmt)* PUNCTUATION('}')
+// El parser llega al EOF sin encontrar '}'
+ 
+func saludar() {
+    var msg int;
+    var ok bool;
+ 

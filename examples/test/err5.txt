@@ -1,0 +1,8 @@
+// ERROR: Token inesperado al inicio de Stmt
+// Regla: Stmt solo acepta var/ID/if/for/return/print/println
+// El literal entero '42' no puede iniciar un Stmt
+ 
+func test() {
+    42;
+}
+    
