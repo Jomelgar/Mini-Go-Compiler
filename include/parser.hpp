@@ -2,6 +2,7 @@
 #include <format>
 #include <iostream>
 #include <string_view>
+#include "tree.hpp"
 #include "lexer.hpp"
 
 /*

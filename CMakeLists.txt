@@ -8,4 +8,7 @@ add_executable( Gol
     src/lexer.cpp
     include/parser.hpp
     src/parser.cpp
+    include/tree.hpp
+    include/enums/NodeKind.hpp
+    include/enums/type.hpp
 )
