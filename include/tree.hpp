@@ -10,11 +10,13 @@
 
 using Value = std::variant<int64_t,bool>;
 
+struct Visitor;
+
 struct ASTNode{
     Type * resolvedType = nullptr;
     virtual ~ASTNode() = default; 
     virtual NodeKind kind() const { return NodeKind::ASTNODE;};
-    virtual void accept(Visitor* v) = 0;
+    virtual void accept(Visitor& v) = 0;
 };
 
 struct ProgramNode : ASTNode{
@@ -23,7 +25,7 @@ struct ProgramNode : ASTNode{
         return NodeKind::PROGRAM;
     }
 
-    void accept(Visitor *v) { v->visit(*this) }
+    void accept(Visitor &v) override;
 };
 
 struct VarDeclNode : ASTNode{
@@ -32,6 +34,8 @@ struct VarDeclNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::VARDECL;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct FunDeclNode : ASTNode{
@@ -41,21 +45,29 @@ struct FunDeclNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::FUNDECL;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct ParamsListNode : ASTNode{
     std::vector<ASTNode*> param;
+
     NodeKind kind() const override {
         return NodeKind::PARAMSLIST;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct ParamNode : ASTNode{
     bool isRef;
     std::string id;
+
     NodeKind kind() const override {
         return NodeKind::PARAM;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct BlockNode : ASTNode{
@@ -64,6 +76,8 @@ struct BlockNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::BLOCK;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct StmtNode : ASTNode{
@@ -71,6 +85,8 @@ struct StmtNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::STMT;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct ShortDeclNode : ASTNode{
@@ -79,6 +95,8 @@ struct ShortDeclNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::SHORTDECL;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct AssignStmtNode : ASTNode{
@@ -87,6 +105,8 @@ struct AssignStmtNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::ASSIGNSTMT;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct CallStmtNode : ASTNode{
@@ -95,6 +115,8 @@ struct CallStmtNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::CALLSTMT;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct IfStmtNode : ASTNode{
@@ -105,6 +127,8 @@ struct IfStmtNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::IFSTMT;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct ForStmtNode : ASTNode{
@@ -114,6 +138,8 @@ struct ForStmtNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::FORSTMT;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct ReturnStmtNode : ASTNode{
@@ -122,6 +148,8 @@ struct ReturnStmtNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::RETURNSTMT;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct PrintStmtNode : ASTNode{
@@ -131,6 +159,8 @@ struct PrintStmtNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::PRINTSTMT;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct PrintArgNode : ASTNode{
@@ -146,6 +176,8 @@ struct PrintArgNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::PRINTARG;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct ArgListNode : ASTNode{
@@ -155,6 +187,8 @@ struct ArgListNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::ARGLIST;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct ArgNode : ASTNode{
@@ -163,6 +197,8 @@ struct ArgNode : ASTNode{
     NodeKind kind() const override {
         return NodeKind::ARG;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct ExprNode : ASTNode {
@@ -170,6 +206,8 @@ struct ExprNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::EXPR;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct OrExprNode : ASTNode {
@@ -178,6 +216,8 @@ struct OrExprNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::OREXPR;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct AndExprNode : ASTNode {
@@ -186,6 +226,8 @@ struct AndExprNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::ANDEXPR;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct NotExprNode : ASTNode {
@@ -194,6 +236,8 @@ struct NotExprNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::NOTEXPR;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct RelExprNode : ASTNode {
@@ -208,6 +252,8 @@ struct RelExprNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::RELEXPR;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct AddExprNode : ASTNode {
@@ -218,6 +264,8 @@ struct AddExprNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::ADDEXPR;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct MulExprNode : ASTNode {
@@ -228,6 +276,8 @@ struct MulExprNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::MULEXPR;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct UnaryExprNode : ASTNode {
@@ -236,6 +286,8 @@ struct UnaryExprNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::UNARYEXPR;
     }
+
+    void accept(Visitor &v) override;
 };
 
 struct PrimaryNode : ASTNode {
@@ -243,4 +295,6 @@ struct PrimaryNode : ASTNode {
     NodeKind kind() const override {
         return NodeKind::PRIMARY;
     }
+
+    void accept(Visitor &v) override;
 };
