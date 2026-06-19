@@ -169,12 +169,12 @@ public:
     void typeCheck(Scope& scope) override;
 };
 
-class call : public Expr {
+class call : public Expr, public stmt {
 public:
     std::string id;
     std::vector<arg*> args;
     call(std::string id_, std::vector<arg*> args_)
-        : Expr(Kind::CALL), id(id_), args(args_) {}
+        : Expr(Kind::CALL), stmt(Kind::CALL), id(id_), args(args_) {}
     void typeCheck(Scope& scope) override;
 };
 

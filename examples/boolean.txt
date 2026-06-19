@@ -3,6 +3,7 @@ return n % 2 == 0 ;
 }
 func main() {
 var n int = 42 ;
+
 if isEven(n) && n > 0 {
 println("positive and even") ;
 } else {

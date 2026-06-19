@@ -17,9 +17,16 @@ int main(int argc,char* argv[]){
     Lexer lexer(file);
     Parser parser(lexer);
     try {
-        parser.parse();
-    } catch(const std::runtime_error& e) {
-        std::cerr << e.what() << std::endl;
+        std::vector<ASTNode*> program = parser.parse(false);
+        Scope scope;
+        scope.push();
+
+        for (ASTNode* node : program)
+             node->typeCheck(scope);
+        scope.pop();
+       std::cout << "Analisis semantico exitoso" << std::endl;
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error semantico: " << e.what() << std::endl;
         return 1;
     }
     return  0;
