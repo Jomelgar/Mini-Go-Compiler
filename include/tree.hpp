@@ -1,300 +1,241 @@
 #pragma once
-#include<unordered_map>
+#include <unordered_map>
 #include <variant>
-#include<vector>
-#include<string>
+#include <vector>
+#include <string>
 #include <cstdint>
-
-#include"./enums/type.hpp"
+#include <stdexcept>
+#include <format>
+#include "./enums/type.hpp"
 #include "./enums/NodeKind.hpp"
+#include "./enums/relational.hpp"
+#include "./enums/unary.hpp"
 
-using Value = std::variant<int64_t,bool>;
+using PrimaryValue = std::variant<int64_t, bool, std::string>;
 
-struct Visitor;
+// ─────────────────────────────────────────────
+//  Tabla de símbolos
+// ─────────────────────────────────────────────
 
-struct ASTNode{
-    Type * resolvedType = nullptr;
-    virtual ~ASTNode() = default; 
-    virtual NodeKind kind() const { return NodeKind::ASTNODE;};
-    virtual void accept(Visitor& v) = 0;
+// Forward declarations
+class param;
+
+struct VarInfo {
+    Type type;
+    bool isRef = false;
 };
 
-struct ProgramNode : ASTNode{
-    std::vector<ASTNode*> nodes;
-    NodeKind kind() const override {
-        return NodeKind::PROGRAM;
+struct FuncInfo {
+    Type returnType;          // Type::VOID si no retorna nada
+    std::vector<param*> params;
+};
+
+using TableValue = std::variant<VarInfo, FuncInfo>;
+
+// Stack de scopes: global → ... → local
+struct Scope {
+    std::vector<std::unordered_map<std::string, TableValue>> scopes;
+
+    void push() {
+        scopes.push_back({});
     }
 
-    void accept(Visitor &v) override;
+    void pop() {
+        scopes.pop_back();
+    }
+
+    // Declara en el scope actual; lanza si ya existe en ese mismo scope
+    void declare(const std::string& id, TableValue val) {
+        if (scopes.back().count(id))
+            throw std::runtime_error(std::format("'{}' ya fue declarado en este scope", id));
+        scopes.back()[id] = val;
+    }
+
+    // Busca de adentro hacia afuera; nullptr si no existe
+    TableValue* lookup(const std::string& id) {
+        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it)
+            if (it->count(id)) return &(*it)[id];
+        return nullptr;
+    }
+
+    // Retorna el tipo de retorno de la función que estamos analizando (último scope de función)
+    // Se guarda con la clave especial "__return__"
+    Type currentReturnType() {
+        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+            if (it->count("__return__")) {
+                return std::get<VarInfo>((*it)["__return__"]).type;
+            }
+        }
+        return Type::VOID;
+    }
+
+    void setReturnType(Type t) {
+        scopes.back()["__return__"] = VarInfo{t, false};
+    }
 };
 
-struct VarDeclNode : ASTNode{
+// ─────────────────────────────────────────────
+//  Nodos AST
+// ─────────────────────────────────────────────
+
+class ASTNode {
+public:
+    Kind kind;
+    ASTNode(Kind k) : kind(k) {}
+    virtual ~ASTNode() = default;
+    virtual void typeCheck(Scope& scope) = 0;
+};
+
+class stmt : public ASTNode {
+public:
+    stmt(Kind k) : ASTNode(k) {}
+};
+
+class Expr : public ASTNode {
+public:
+    Type type = Type::VOID;
+    Expr(Kind k) : ASTNode(k) {}
+};
+
+class Block : public ASTNode {
+public:
+    std::vector<ASTNode*> stmts;
+    Block(std::vector<ASTNode*> stmts_) : ASTNode(Kind::BLOCK), stmts(stmts_) {}
+    void typeCheck(Scope& scope) override;
+};
+
+class param : public ASTNode {
+public:
+    Type type;
     std::string id;
-    ASTNode * expr;
-    NodeKind kind() const override {
-        return NodeKind::VARDECL;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct FunDeclNode : ASTNode{
-    std::string id;
-    ASTNode * paramsList;
-    ASTNode * block;
-    NodeKind kind() const override {
-        return NodeKind::FUNDECL;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct ParamsListNode : ASTNode{
-    std::vector<ASTNode*> param;
-
-    NodeKind kind() const override {
-        return NodeKind::PARAMSLIST;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct ParamNode : ASTNode{
     bool isRef;
+    param(Type type_, std::string id_, bool isRef_)
+        : ASTNode(Kind::PARAM), type(type_), id(id_), isRef(isRef_) {}
+    void typeCheck(Scope& scope) override;
+};
+
+class arg : public ASTNode {
+public:
+    Expr* expr;
+    bool hasAddress;
+    arg(Expr* expr_, bool hasAddress_)
+        : ASTNode(Kind::ARG), expr(expr_), hasAddress(hasAddress_) {}
+    void typeCheck(Scope& scope) override;
+};
+
+class printarg : public ASTNode {
+public:
+    Expr* expr;
+    printarg(Expr* expr_) : ASTNode(Kind::PRINTARG), expr(expr_) {}
+    void typeCheck(Scope& scope) override;
+};
+
+class funcdecl : public stmt {
+public:
+    std::vector<param*> params;
+    Block* block;
     std::string id;
-
-    NodeKind kind() const override {
-        return NodeKind::PARAM;
-    }
-
-    void accept(Visitor &v) override;
+    Type returnType;
+    funcdecl(Block* block_, std::vector<param*> params_, std::string id_, Type ret_ = Type::VOID)
+        : stmt(Kind::FUNDECL), block(block_), params(params_), id(id_), returnType(ret_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct BlockNode : ASTNode{
-    std::vector<ASTNode*> stmt;
-
-    NodeKind kind() const override {
-        return NodeKind::BLOCK;
-    }
-
-    void accept(Visitor &v) override;
+class vardecl : public stmt {
+public:
+    Type type;
+    std::string id;
+    Expr* expr;
+    vardecl(Type type_, std::string id_, Expr* expr_)
+        : stmt(Kind::VARDECL), type(type_), id(id_), expr(expr_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct StmtNode : ASTNode{
-    ASTNode * stmt;
-    NodeKind kind() const override {
-        return NodeKind::STMT;
-    }
-
-    void accept(Visitor &v) override;
+class shortdecl : public stmt {
+public:
+    std::string id;
+    Expr* expr;
+    shortdecl(std::string id_, Expr* expr_)
+        : stmt(Kind::SHORTDECL), id(id_), expr(expr_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct ShortDeclNode : ASTNode{
-    ASTNode * expr;
-
-    NodeKind kind() const override {
-        return NodeKind::SHORTDECL;
-    }
-
-    void accept(Visitor &v) override;
+class assign : public stmt {
+public:
+    std::string id;
+    Expr* expr;
+    assign(std::string id_, Expr* expr_)
+        : stmt(Kind::ASSIGN), id(id_), expr(expr_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct AssignStmtNode : ASTNode{
-    ASTNode * expr;
-
-    NodeKind kind() const override {
-        return NodeKind::ASSIGNSTMT;
-    }
-
-    void accept(Visitor &v) override;
+class call : public Expr {
+public:
+    std::string id;
+    std::vector<arg*> args;
+    call(std::string id_, std::vector<arg*> args_)
+        : Expr(Kind::CALL), id(id_), args(args_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct CallStmtNode : ASTNode{
-    ASTNode * argList;
-
-    NodeKind kind() const override {
-        return NodeKind::CALLSTMT;
-    }
-
-    void accept(Visitor &v) override;
+class ifstmt : public stmt {
+public:
+    Expr* cond;
+    Block* block;
+    ifstmt* elseptr;
+    ifstmt(Expr* cond_, Block* block_, ifstmt* elseptr_)
+        : stmt(Kind::IF), cond(cond_), block(block_), elseptr(elseptr_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct IfStmtNode : ASTNode{
-    ASTNode * expr;
-    ASTNode * block;
-    ASTNode * optional;
-
-    NodeKind kind() const override {
-        return NodeKind::IFSTMT;
-    }
-
-    void accept(Visitor &v) override;
+class forstmt : public stmt {
+public:
+    Expr* cond;
+    Block* block;
+    forstmt(Expr* cond_, Block* block_)
+        : stmt(Kind::FOR), cond(cond_), block(block_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct ForStmtNode : ASTNode{
-    ASTNode * expr;
-    ASTNode * block;
-    
-    NodeKind kind() const override {
-        return NodeKind::FORSTMT;
-    }
-
-    void accept(Visitor &v) override;
+class returnstmt : public stmt {
+public:
+    Expr* expr;  // puede ser nullptr si la func es void
+    returnstmt(Expr* expr_) : stmt(Kind::RETURN), expr(expr_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct ReturnStmtNode : ASTNode{
-    ASTNode * expr;
-
-    NodeKind kind() const override {
-        return NodeKind::RETURNSTMT;
-    }
-
-    void accept(Visitor &v) override;
+class printstmt : public stmt {
+public:
+    bool withEnter;
+    std::vector<printarg*> args;
+    printstmt(std::vector<printarg*> args_, bool withEnter_ = false)
+        : stmt(Kind::PRINT), args(args_), withEnter(withEnter_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct PrintStmtNode : ASTNode{
-    bool haveLn;
-    std::vector<ASTNode*> printArgs;
-
-    NodeKind kind() const override {
-        return NodeKind::PRINTSTMT;
-    }
-
-    void accept(Visitor &v) override;
+class binaryexpr : public Expr {
+public:
+    RELATIONAL op;
+    Expr* left;
+    Expr* right;
+    binaryexpr(RELATIONAL op_, Expr* left_, Expr* right_)
+        : Expr(Kind::BINARY_EXPR), op(op_), left(left_), right(right_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct PrintArgNode : ASTNode{
-    enum class Kind {
-        EXPR,
-        STRING
-    };
-
-    Kind argKind;
-    ASTNode* expr = nullptr;
-    std::string value;
-
-    NodeKind kind() const override {
-        return NodeKind::PRINTARG;
-    }
-
-    void accept(Visitor &v) override;
+class unaryexpr : public Expr {
+public:
+    UNARY op;
+    Expr* expr;
+    unaryexpr(UNARY op_, Expr* expr_)
+        : Expr(Kind::UNARYEXPR), op(op_), expr(expr_) {}
+    void typeCheck(Scope& scope) override;
 };
 
-struct ArgListNode : ASTNode{
-    ASTNode * child;
-    std::vector<ASTNode*> args;
-
-    NodeKind kind() const override {
-        return NodeKind::ARGLIST;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct ArgNode : ASTNode{
-    bool isAddress;
-    ASTNode * expr;
-    NodeKind kind() const override {
-        return NodeKind::ARG;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct ExprNode : ASTNode {
-    ASTNode * orExpr;
-    NodeKind kind() const override {
-        return NodeKind::EXPR;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct OrExprNode : ASTNode {
-    std::vector<ASTNode*> andExpr;
-
-    NodeKind kind() const override {
-        return NodeKind::OREXPR;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct AndExprNode : ASTNode {
-    std::vector<ASTNode*> NotExpr;
-
-    NodeKind kind() const override {
-        return NodeKind::ANDEXPR;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct NotExprNode : ASTNode {
-    bool isNegate;
-    ASTNode * expr;
-    NodeKind kind() const override {
-        return NodeKind::NOTEXPR;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct RelExprNode : ASTNode {
-    enum class RelOp {
-        LT, GT, LE, GE, EQ, NEQ
-    };
-    
-    ASTNode* left;
-    ASTNode* right;
-    RelOp op;
-
-    NodeKind kind() const override {
-        return NodeKind::RELEXPR;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct AddExprNode : ASTNode {
-    ASTNode * left;
-    ASTNode * right;
-    char op;
-    
-    NodeKind kind() const override {
-        return NodeKind::ADDEXPR;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct MulExprNode : ASTNode {
-    ASTNode * left;
-    ASTNode * right;
-    char op;
-    
-    NodeKind kind() const override {
-        return NodeKind::MULEXPR;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct UnaryExprNode : ASTNode {
-    bool isNeg;
-    ASTNode * child;
-    NodeKind kind() const override {
-        return NodeKind::UNARYEXPR;
-    }
-
-    void accept(Visitor &v) override;
-};
-
-struct PrimaryNode : ASTNode {
-    Value value;
-    NodeKind kind() const override {
-        return NodeKind::PRIMARY;
-    }
-
-    void accept(Visitor &v) override;
+class primary : public Expr {
+public:
+    PrimaryValue value;
+    primary(PrimaryValue value_, Type type_)
+        : Expr(Kind::PRIMARY), value(value_) { this->type = type_; }
+    void typeCheck(Scope& scope) override;
 };

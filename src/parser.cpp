@@ -17,9 +17,8 @@ struct IndentGuard {
 };
 
 //Init -> Program
-void Parser::parse(const bool text){
-    parseProgram(text);
-    std::cout << "Syntax is correct!"<< std::endl;
+std::vector<ASTNode *> Parser::parse(const bool text){
+    return parseProgram(text);
 }
 
 void Parser::debugEnter(std::string_view nonterminal, const bool text) const {
@@ -31,31 +30,35 @@ void Parser::printCurrent(const bool text) const {
 }
 
 // Program -> (VarDecl | FuncDecl)* EOF
-void Parser::parseProgram(const bool text){
-    debugEnter("parseProgram", text);
-    IndentGuard guard(text);
+std::vector<ASTNode *> Parser::parseProgram(const bool text){
+    std::vector<ASTNode *> program;
     while(equal(Token::KEYWORD, "var") || equal(Token::KEYWORD, "func")){
         if(current.txt == "var"){
-            parseVarDecl(text);
+            program.push_back(parseVarDecl(text));
         } else {
-            parseFuncDecl(text);
+            program.push_back(parseFuncDecl(text));
         }
     }
     match(Token::END_OF_FILE, text, "parseProgram");
+    return program;
 }
 
 //VarDecl -> KEYWORD('var') ID KEYWORD('int' | 'bool') (ASSIGN Expr)? PUNCTUATION(';')
-void Parser::parseVarDecl(const bool text){
+vardecl * Parser::parseVarDecl(const bool text){
     debugEnter("parseVarDecl", text);
     IndentGuard guard(text);
+
+    std::string id = current.txt;
+    Type type = Type::VOID;
+    Expr * expr = nullptr;
     // KEYWORD('var')
     if(equal(Token::KEYWORD, "var")){
         consume(text);
         // ID
         match(Token::ID, text, "parseVarDecl");
-        
         // KEYWORD('int' | 'bool')
         if(equal(Token::KEYWORD, "int") || equal(Token::KEYWORD, "bool")){
+            type = equal(Token::KEYWORD, "int") ? Type::INT : Type::BOOL;
             consume(text);
         } else {
             throw std::runtime_error(std::format("Error in parseVarDecl: expected type 'int' or 'bool', but got: {}", current.txt));
@@ -63,22 +66,29 @@ void Parser::parseVarDecl(const bool text){
         // (ASSIGN Expr)?
         if(equal(Token::ASSIGN)){
             consume(text);
-            parseExpr(text);
+            expr = parseExpr(text);
         }
         // PUNCTUATION(';')
         match(Token::PUNCTUATIONAL, ";", text, "parseVarDecl");
     }else {
         throw std::runtime_error(std::format("Error in parseVarDecl: expected 'var' keyword, but got: {}", current.txt));
     }
+
+    return new vardecl(type,id, expr);
 }
 
 //FuncDecl -> KEYWORD('func') ID PUNCTUATION('(') (Paramslist)? PUNCTUATION(')') (KEYWORD('int' | 'bool'))? Block 
-void Parser::parseFuncDecl(const bool text){
+funcdecl * Parser::parseFuncDecl(const bool text){
     debugEnter("parseFuncDecl", text);
     IndentGuard guard(text);
+
+    std::vector<param *> params;
+    Block * block;
+    std::string id;
     if(equal(Token::KEYWORD, "func")){
         consume(text);
         // ID
+        id = current.txt;
         match(Token::ID, text, "parseFuncDecl");
         // PUNCTUATION('(')
         if(equal(Token::PUNCTUATIONAL, "(")){
@@ -88,7 +98,7 @@ void Parser::parseFuncDecl(const bool text){
         }
         // (Paramslist)?
         if(equal(Token::ID) || equal(Token::KEYWORD, "ref")){
-            parseParamsList(text);
+            params = parseParamsList(text);
         }
         // PUNCTUATION(')')
         if(equal(Token::PUNCTUATIONAL, ")")){
@@ -103,48 +113,59 @@ void Parser::parseFuncDecl(const bool text){
         }
         
         //Block
-        parseBlock(text);
+        block = parseBlock(text);
     }else {
         throw std::runtime_error(std::format("Error in parseFuncDecl: expected 'func' keyword, but got: {}", current.txt));
     }
+
+    return new funcdecl(block, params, id);
 }
 
 // ParamsList -> Param (PUNCTUATION(',') Param)*
-void Parser::parseParamsList(const bool text){
+std::vector<param*> Parser::parseParamsList(const bool text){
     debugEnter("parseParamsList", text);
     IndentGuard guard(text);
+    std::vector<param *> params;
     //Param
-    parseParam(text);
+    params.push_back(parseParam(text));
     // (PUNCTUATION(',') Param)*
     while(equal(Token::PUNCTUATIONAL, ",")){
         consume(text);
-        parseParam(text);
+        params.push_back(parseParam(text));
     }
+    return params;
 }
 
 // Param -> (KEYWORD('ref'))? ID KEYWORD('int' | 'bool')
-void Parser::parseParam(const bool text){
+param* Parser::parseParam(const bool text){
     debugEnter("parseParam", text);
     IndentGuard guard(text);
+    Type type;
+    std::string id;
+    bool isRef = false;
     // (KEYWORD('ref'))?
     if(equal(Token::KEYWORD,"ref")){
         consume(text);
+        isRef = true;
     }
 
     // ID
+    id = current.txt;
     match(Token::ID, text, "parseParam");
     // KEYWORD('int' | 'bool')
     if(equal(Token::KEYWORD, "int") || equal(Token::KEYWORD, "bool")){
+        type = equal(Token::KEYWORD, "int") ? Type::INT : Type::BOOL;
         consume(text);
     } else {
         throw std::runtime_error(std::format("Error in parseParam: expected type 'int' or 'bool', but got: {}", current.txt));
     }
+
+    return new param(type, id, isRef);
 }
 
 // Block -> PUNCTUATION('{') (Stmt)* PUNCTUATION('}')
-void Parser::parseBlock(const bool text){
-    debugEnter("parseBlock", text);
-    IndentGuard guard(text);
+Block * Parser::parseBlock(const bool text){
+    std::vector<ASTNode*> stmts;
     // PUNCTUATION('{')
     match(Token::PUNCTUATIONAL, "{", text, "parseBlock");
     // (Stmt)*
@@ -152,7 +173,7 @@ void Parser::parseBlock(const bool text){
             equal(Token::KEYWORD, "if") || equal(Token::KEYWORD, "for") ||
             equal(Token::KEYWORD, "return") || equal(Token::KEYWORD, "print") || equal(Token::KEYWORD, "println")
         ){
-        parseStmt(text);
+        stmts.push_back(parseStmt(text));
     }     
     // PUNCTUATION('}')
     if(equal(Token::PUNCTUATIONAL, "}")){
@@ -160,123 +181,133 @@ void Parser::parseBlock(const bool text){
     } else {
         throw std::runtime_error(std::format("Error in parseBlock: expected '}}', but got: {}", current.txt));
     }
+
+    return new Block(stmts);
 }
 
 // Stmt -> VarDecl|ID (ShortDecl|AssignStmt|CallStmt) | ifStmt | forStmt | returnStmt | printStmt
-void Parser::parseStmt(const bool text){
+stmt * Parser::parseStmt(const bool text){
     debugEnter("parseStmt", text);
     IndentGuard guard(text);
     if(equal(Token::KEYWORD, "var")){
-        parseVarDecl(text);
+        return parseVarDecl(text);
     } else if(equal(Token::ID)){
+        std::string id = current.txt;
         consume(text);
         if(equal(Token::SHORT_ASSIGN)){
-            parseShortDecl(text);
+            parseShortDecl(id);
         }else if(equal(Token::ASSIGN)){
-            parseAssignStmt(text);
+            parseAssignStmt(id);
         } else if(equal(Token::PUNCTUATIONAL, "(")){
-            parseCallStmt(text);
+            parseCallStmt(id);
         } else {
             throw std::runtime_error(std::format("Error in parseStmt: expected ':=', '=', or '(', but got: {}", current.txt));
         }
     } else if(equal(Token::KEYWORD, "if")){
-        parseIfStmt(text);
+        return parseIfStmt(text);
     } else if(equal(Token::KEYWORD, "for")){
-        parseForStmt(text);
+        return parseForStmt(text);
     } else if (equal(Token::KEYWORD, "return")){
-        parseReturnStmt(text);
+        return parseReturnStmt(text);
     } else if (equal(Token::KEYWORD, "print") || equal(Token::KEYWORD, "println")){
-        parsePrintStmt(text);
-    } else {
-        throw std::runtime_error(std::format("Error in parseStmt: unexpected token: {}", current.txt));
+        return parsePrintStmt(text);
     }
+    
+    throw std::runtime_error(std::format("Error in parseStmt: unexpected token: {}", current.txt));
 }
 
 // ShortDecl -> SHORT_ASSIGN Expr PUNCTUATION(';')
-void Parser::parseShortDecl(const bool text){
-    debugEnter("parseShortDecl", text);
-    IndentGuard guard(text);
-    // SHORT_ASSIGN
-    match(Token::SHORT_ASSIGN, text);
-    parseExpr(text);
+shortdecl * Parser::parseShortDecl(const std::string id){
+    Expr * expr = nullptr;
+    // SHORT_ASSIGN 
+    match(Token::SHORT_ASSIGN);
+    expr = parseExpr();
     // PUNCTUATION(';')
-    match(Token::PUNCTUATIONAL, ";", text);
+    match(Token::PUNCTUATIONAL, ";");
+    return new shortdecl(id,expr);
 }
 
 // AssignStmt -> ASSIGN Expr SEMICOLON
-void Parser::parseAssignStmt(const bool text){
-    debugEnter("parseAssignStmt", text);
-    IndentGuard guard(text);
+assign * Parser::parseAssignStmt(const std::string id){
+    Expr * expr;
     // ASSIGN
-    match(Token::ASSIGN, text);
+    match(Token::ASSIGN);
     // Expr
-    parseExpr(text);
+    expr = parseExpr();
     // SEMICOLON
-    match(Token::PUNCTUATIONAL, ";", text);
+    match(Token::PUNCTUATIONAL, ";");
+    return new assign(id,expr);
 }
 
 // CallStmt -> PUNCTUATION('(') (ArgList)? PUNCTUATION(')') SEMICOLON
-void Parser::parseCallStmt(const bool text){
-    debugEnter("parseCallStmt", text);
-    IndentGuard guard(text);
+call * Parser::parseCallStmt(const std::string id){
+    std::vector<arg*> args;
     // PUNCTUATION('(')
-    match(Token::PUNCTUATIONAL, "(", text, "parseCallStmt");
+    match(Token::PUNCTUATIONAL, "(");
     // (ArgList)?
     if(equal(Token::ADDRESS) || equal(Token::LOGICAL,"!") || equal(Token::ARITH,"-") || 
         equal(Token::ID) || equal(Token::KEYWORD, "true") || equal(Token::KEYWORD, "false") ||
         equal(Token::INT) || equal(Token::STRING) || equal(Token::PUNCTUATIONAL, "(")
     ){
-        parseArgList(text);
+        args = parseArgList();
     }
     // PUNCTUATION(')')
-    match(Token::PUNCTUATIONAL, ")", text, "parseCallStmt");
+    match(Token::PUNCTUATIONAL, ")");
     // SEMICOLON
-    match(Token::PUNCTUATIONAL,";", text, "parseCallStmt");
+    match(Token::PUNCTUATIONAL,";");
+    return new call(id,args);
 }
 
 // ifStmt -> KEYWORD('if') Expr Block (KEYWORD('else')(ifStmt | Block))? 
-void Parser::parseIfStmt(const bool text){
-    debugEnter("parseIfStmt", text);
-    IndentGuard guard(text);
+ifstmt * Parser::parseIfStmt(const bool text){
+    Expr * cond = nullptr;
+    Block * block = nullptr;
+    ifstmt * elseptr = nullptr; 
     match(Token::KEYWORD, "if", text, "parseIfStmt");
-    parseExpr(text);
-    parseBlock(text);
+    cond = parseExpr();
+    block = parseBlock();
     if(equal(Token::KEYWORD, "else")){
-        consume(text);
+        consume();
         if(equal(Token::KEYWORD, "if")){
-            parseIfStmt(text);
+            elseptr = parseIfStmt();
         } else {
-            parseBlock(text);
+            Block * otherblock = parseBlock();
+            elseptr = new ifstmt(nullptr, otherblock, nullptr);
         }
     }
+
+    return new ifstmt(cond, block, elseptr);
 };
 // forStmt -> KEYWORD('for') Expr Block
-void Parser::parseForStmt(const bool text){
-    debugEnter("parseForStmt", text);
-    IndentGuard guard(text);
+forstmt* Parser::parseForStmt(const bool text){
+    Expr * cond;
+    Block * block;
     match(Token::KEYWORD, "for", text, "parseForStmt");
-    parseExpr(text);
-    parseBlock(text);
+    cond = parseExpr(text);
+    block = parseBlock(text);
+
+    return new forstmt(cond, block);
 };
 // returnStmt -> KEYWORD('return') (Expr)? SEMICOLON
-void Parser::parseReturnStmt(const bool text){
-    debugEnter("parseReturnStmt", text);
-    IndentGuard guard(text);
+returnstmt* Parser::parseReturnStmt(const bool text){
+    Expr * expr;
     match(Token::KEYWORD, "return", text, "parseReturnStmt");
     if(equal(Token::ADDRESS) || equal(Token::LOGICAL,"!") || equal(Token::ARITH,"-") || 
         equal(Token::ID) || equal(Token::KEYWORD, "true") || equal(Token::KEYWORD, "false") ||
         equal(Token::INT) || equal(Token::STRING) || equal(Token::PUNCTUATIONAL, "(")
     ){
-        parseExpr(text);
+        expr = parseExpr(text);
     }
     match(Token::PUNCTUATIONAL,";", text, "parseReturnStmt");
+    return new returnstmt(expr);
 };
 // printStmt -> (KEYWORD('print') | KEYWORD('println')) PUNCTUATION('(') PrintArg (PUNCTUATION(',') PrintArg)* PUNCTUATION(')') SEMICOLON
-void Parser::parsePrintStmt(const bool text){
-    debugEnter("parsePrintStmt", text);
-    IndentGuard guard(text);
+printstmt* Parser::parsePrintStmt(const bool text){
+    bool withEnter = false;
+    std::vector<printarg*> args;
     // (KEYWORD('print') | KEYWORD('println'))
     if(equal(Token::KEYWORD,"print") || equal(Token::KEYWORD,"println")){
+        withEnter = equal(Token::KEYWORD,"println");
         consume(text);
     } else {
         throw std::runtime_error(std::format("Error in parsePrintStmt: expected 'print' or 'println', but got: {}", current.txt));
@@ -285,188 +316,218 @@ void Parser::parsePrintStmt(const bool text){
     // PUNCTUATION('(')
     match(Token::PUNCTUATIONAL, "(", text, "parsePrintStmt");
     // PrintArg
-    parsePrintArg(text);
+    args.push_back(parsePrintArg(text));
     // (PUNCTUATION(',') PrintArg)*
     while(equal(Token::PUNCTUATIONAL, ",")){
         consume(text);
-        parsePrintArg(text);
+        args.push_back(parsePrintArg(text));
     }
     // PUNCTUATION(')')
     match(Token::PUNCTUATIONAL, ")", text, "parsePrintStmt");
     // SEMICOLON
     match(Token::PUNCTUATIONAL,";", text, "parsePrintStmt");
-
+    return new printstmt(args, withEnter);
 };
 // PrintArg -> Expr | STRING
-void Parser::parsePrintArg(const bool text){
-    debugEnter("parsePrintArg", text);
-    IndentGuard guard(text);
+printarg* Parser::parsePrintArg(const bool text){
+    Expr * expr=nullptr;
     if(equal(Token::STRING)){
+        expr = new primary(current.txt, Type::STRING);
         consume(text);
     } else {
-        parseExpr(text);
+        expr = parseExpr(text);
     }
+
+    return new printarg(expr);
 };
 // ArgList -> Arg (PUNCTUATION(',') Arg)*
-void Parser::parseArgList(const bool text){
-    debugEnter("parseArgList", text);
-    IndentGuard guard(text);
-    parseArg(text);
+std::vector<arg*> Parser::parseArgList(const bool text){
+    std::vector<arg*> args;
+    args.push_back(parseArg(text));
     while(equal(Token::PUNCTUATIONAL, ",")){
         consume(text);
-        parseArg(text);
+        args.push_back(parseArg(text));
     }
+
+    return args;
 };
 
 // Arg -> (ADDRESS)? Expr
-void Parser::parseArg(const bool text){
-    debugEnter("parseArg", text);
-    IndentGuard guard(text);
+arg * Parser::parseArg(const bool text){
+    Expr * expr;
+    bool hasAddress;
     // (ADDRESS)?
     if(equal(Token::ADDRESS)){
+        hasAddress = true;
         consume(text);
     }
     // Expr
-    parseExpr(text);
+    expr = parseExpr(text);
+    return new arg(expr, hasAddress);
 }
 
 // Expr -> OrExpr
-void Parser::parseExpr(const bool text){
-    debugEnter("parseExpr", text);
-    IndentGuard guard(text);
-    parseOrExpr(text);
+Expr * Parser::parseExpr(const bool text){
+    return parseOrExpr(text);
 }
 
 // OrExpr -> AndExpr (LOGICAL('||') andExpr)*
-void Parser::parseOrExpr(const bool text){
-    debugEnter("parseOrExpr", text);
-    IndentGuard guard(text);
+binaryexpr* Parser::parseOrExpr(const bool text){
+    RELATIONAL op = RELATIONAL::EMPTY;
+    Expr * right= nullptr;
     // AndExpr
-    parseAndExpr(text);
+    Expr * left = parseAndExpr(text);
     // (LOGICAL('||') andExpr)*
     while(equal(Token::LOGICAL, "||")){
+        op = RELATIONAL::OR;
         consume(text);
-        parseAndExpr(text);
+        right = parseAndExpr(text);
     }
+
+    return new binaryexpr(op, left, right);
 }
 
-// AndExpr -> NotExpr (LOGICAL('&&') NotExpr)*
-void Parser::parseAndExpr(const bool text){
-    debugEnter("parseAndExpr", text);
-    IndentGuard guard(text);
-    // NotExpr
-    parseNotExpr(text);
-    // (LOGICAL('&&') NotExpr)*
-    while(equal(Token::LOGICAL, "&&")){
+// AndExpr -> NotExpr (LOGICAL('new new ') NotExpr)*
+binaryexpr* Parser::parseAndExpr(const bool text){
+    RELATIONAL op = RELATIONAL::EMPTY;
+    Expr * right= nullptr;
+    Expr * left = parseNotExpr(text);
+    // (LOGICAL('new new ') NotExpr)*
+    while(equal(Token::LOGICAL, "new new ")){
+        op = RELATIONAL::AND;
         consume(text);
-        parseNotExpr(text);
+        right = parseNotExpr(text);
     }
+    return new binaryexpr(op, left, right);
 };
 
 // NotExpr -> LOGICAL('!') NotExpr | RelExpr
-void Parser::parseNotExpr(const bool text){
-    debugEnter("parseNotExpr", text);
-    IndentGuard guard(text);
+unaryexpr * Parser::parseNotExpr(const bool text){
+    UNARY op = UNARY::EMPTY;
+    Expr * expr;
     if(equal(Token::LOGICAL, "!")){
+        op = UNARY::NOT;
         consume(text);
-        parseNotExpr(text);
+        expr = parseNotExpr(text);
     } else {
-        parseRelExpr(text);
+        expr = parseRelExpr(text);
     }
+
+    return new unaryexpr(op, expr);
 };
 
 // RelExpr -> AddExpr ((RelOp) AddExpr)*
-void Parser::parseRelExpr(const bool text){
-    debugEnter("parseRelExpr", text);
-    IndentGuard guard(text);
+binaryexpr * Parser::parseRelExpr(const bool text){
+    RELATIONAL op = RELATIONAL::EMPTY;
+    Expr * left;
+    Expr * right = nullptr;
     // AddExpr
-    parseAddExpr(text);
+    left = parseAddExpr(text);
     // ((RelOp) AddExpr)*
     while(equal(Token::RELATIONAL)){
-        parseRelOp(text);
-        parseAddExpr(text);
+        op = parseRelOp(text);
+        right = parseAddExpr(text);
     }
+    return new binaryexpr(op, left, right);
 };
 
 // RelOp -> RELATIONAL(any)
-void Parser::parseRelOp(const bool text){
-    debugEnter("parseRelOp", text);
-    IndentGuard guard(text);
-    match(Token::RELATIONAL, text);
+RELATIONAL Parser::parseRelOp(const bool text){
+    std::string op = current.txt;
+    match(Token::RELATIONAL);
+    return toRelational(op);
 };
 
 // AddExpr -> MulExpr ((ARITH('+')| ARITH('-')) MulExpr)*
-void Parser::parseAddExpr(const bool text){
-    debugEnter("parseAddExpr", text);
-    IndentGuard guard(text);
+binaryexpr * Parser::parseAddExpr(const bool text){
+    RELATIONAL op = RELATIONAL::EMPTY;
+    Expr * left;
+    Expr * right = nullptr;
     // MulExpr
-    parseMulExpr(text);
+    left = parseMulExpr(text);
     // ((ARITH('+')| ARITH('-')) MulExpr)*
     while(equal(Token::ARITH, "+") || equal(Token::ARITH, "-")){
+        op = toRelational(current.txt);
         consume(text);
-        parseMulExpr(text);
+        right = parseMulExpr(text);
     }
+    return new binaryexpr(op, left, right);
 };
 
 // MulExpr -> UnaryExpr ((ARITH('*')| ARITH('/')| ARITH('%')) UnaryExpr)*
-void Parser::parseMulExpr(const bool text){
-    debugEnter("parseMulExpr", text);
-    IndentGuard guard(text);
+binaryexpr * Parser::parseMulExpr(const bool text){
+    RELATIONAL op = RELATIONAL::EMPTY;
+    Expr * left;
+    Expr * right = nullptr;
     // UnaryExpr
-    parseUnaryExpr(text);
+    left = parseUnaryExpr(text);
     // ((ARITH('*')| ARITH('/')| ARITH('%')) UnaryExpr)*
     while(equal(Token::ARITH,"*") || equal(Token::ARITH,"/") || equal(Token::ARITH,"%")){
+        op = toRelational(current.txt);
         consume(text);
-        parseUnaryExpr(text);
+        right = parseUnaryExpr(text);
     }
+    return new binaryexpr(op, left, right);
 };
 
 // UnaryExpr -> ARITH('-') UnaryExpr | Primary
-void Parser::parseUnaryExpr(const bool text){
-    debugEnter("parseUnaryExpr", text);
-    IndentGuard guard(text);
+unaryexpr * Parser::parseUnaryExpr(const bool text){
+    UNARY op = UNARY::EMPTY;
+    Expr * expr;
     if(equal(Token::ARITH, "-")){
+        op = UNARY::MINUS;
         consume(text);
-        parseUnaryExpr(text);
+        expr = parseUnaryExpr(text);
     } else {
-        parsePrimary(text);
+        expr =parsePrimary(text);
     }
+
+    return new unaryexpr(op, expr);
 };
 
 // Primary -> INT | KEYWORD('true') | KEYWORD('false') | ID (CallExpr)? | PUNCTUATION('(') Expr PUNCTUATION(')')
-void Parser::parsePrimary(const bool text){
-    debugEnter("parsePrimary", text);
-    IndentGuard guard(text);
+Expr* Parser::parsePrimary(const bool text){
+    Type type;
+    PrimaryValue value;
     if(equal(Token::INT)){
+        type = Type::INT;
+        value = std::stoi(current.txt);
         consume(text);
     } else if(equal(Token::KEYWORD, "true")){
+        type = Type::BOOL;
+        value = true;
         consume(text);
     } else if(equal(Token::KEYWORD, "false")){
+        type = Type::BOOL;
+        value = false;
         consume(text);
     } else if(equal(Token::ID)){
+        std::string id = current.txt;
         consume(text);
         if(equal(Token::PUNCTUATIONAL,"(")){
-            parseCallExpr(text);
+            return parseCallExpr(id);
         }
+        return new primary(value, Type::ID);
     } else if(equal(Token::PUNCTUATIONAL, "(")){
         consume(text);
-        parseExpr(text);
+        return parseExpr(text);
         match(Token::PUNCTUATIONAL, ")", text);
-    } else {
-        throw std::runtime_error(std::format("Unexpected token in primary expression: {}", current.txt));
     }
+    
+    throw std::runtime_error(std::format("Unexpected token in primary expression: {}", current.txt));
 };
 
 // CallExpr -> PUNCTUATION('(') (ArgList)? PUNCTUATION(')')
-void Parser::parseCallExpr(const bool text){
-    debugEnter("parseCallExpr", text);
-    IndentGuard guard(text);
-    match(Token::PUNCTUATIONAL,"(", text);
+call* Parser::parseCallExpr(const std::string id){
+    std::vector<arg*> args;
+    match(Token::PUNCTUATIONAL,"(");
     if(equal(Token::ADDRESS) || equal(Token::LOGICAL,"!") || equal(Token::ARITH,"-") || 
         equal(Token::ID) || equal(Token::KEYWORD, "true") || equal(Token::KEYWORD, "false") ||
         equal(Token::INT) || equal(Token::STRING) || equal(Token::PUNCTUATIONAL, "(")
     ){
-        parseArgList(text);
+        args = parseArgList();
     }
-    match(Token::PUNCTUATIONAL, ")", text);
+    match(Token::PUNCTUATIONAL, ")");
+
+    return new call(id, args);
 };  

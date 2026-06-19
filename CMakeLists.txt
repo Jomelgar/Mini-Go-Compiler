@@ -9,6 +9,9 @@ add_executable( Gol
     include/parser.hpp
     src/parser.cpp
     include/tree.hpp
+    src/tree.cpp
     include/enums/NodeKind.hpp
+    include/enums/relational.hpp
+    include/enums/unary.hpp
     include/enums/type.hpp
 )

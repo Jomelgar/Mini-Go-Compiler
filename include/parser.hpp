@@ -2,7 +2,7 @@
 #include <format>
 #include <iostream>
 #include <string_view>
-#include "visitor.hpp"
+#include "tree.hpp"
 #include "lexer.hpp"
 
 /*
@@ -40,69 +40,69 @@ private:
     };
 public:
     Parser(Lexer& lexer_) : lexer(lexer_) {consume();} 
-    void parse(const bool text = false);
+    std::vector<ASTNode *> parse(const bool text = false);
 private:
 // -------------------------------------------------
     // Program -> (VarDecl | FuncDecl)* EOF
-    void parseProgram(const bool text = false);
+    std::vector<ASTNode *> parseProgram(const bool text = false);
 
 /*-------------------------DECLARATIONS-------------------------*/
     // VarDecl -> KEYWORD('var') ID KEYWORD('int' | 'bool') (ASSIGN Expr)? PUNCTUATION(';')
-    void parseVarDecl(const bool text = false);
+    vardecl * parseVarDecl(const bool text = false);
     // FuncDecl -> KEYWORD('func') ID PUNCTUATION('(') (Paramslist)? PUNCTUATION(')') (KEYWORD('int' | 'bool'))? Block   
-    void parseFuncDecl(const bool text = false); 
+    funcdecl * parseFuncDecl(const bool text = false); 
     // ParamsList -> param (PUNCTUATION(',') param)*
-    void parseParamsList(const bool text = false);
+    std::vector<param*> parseParamsList(const bool text = false);
     // param -> (KEYWORD('ref'))? ID KEYWORD('int' | 'bool')
-    void parseParam(const bool text = false);
+    param* parseParam(const bool text = false);
 /*-------------------------STATEMENTS---------------------------*/
     // Block -> PUNCTUATION('{') (Stmt)* PUNCTUATION('}')
-    void parseBlock(const bool text = false);
+    Block * parseBlock(const bool text = false);
     // Stmt -> VarDecl|ID (ShortDecl|AssignStmt|CallStmt) | ifStmt | forStmt | returnStmt | printStmt
-    void parseStmt(const bool text = false);
+    stmt * parseStmt(const bool text = false);
     // ShortDecl -> SHORT_ASSIGN Expr PUNCTUATION(';')
-    void parseShortDecl(const bool text = false);
+    shortdecl * parseShortDecl(const std::string id);
     // AssignStmt -> ASSIGN Expr PUNCTUATION(';')
-    void parseAssignStmt(const bool text = false);
+    assign * parseAssignStmt(const std::string id);
     // CallStmt -> PUNCTUATION('(') (ArgList)? PUNCTUATION(')') PUNCTUATION(';')
-    void parseCallStmt(const bool text = false);
+    call * parseCallStmt(const std::string id);
     // ifStmt -> KEYWORD('if') Expr Block (KEYWORD('else')(ifStmt | Block))? 
-    void parseIfStmt(const bool text = false);
+    ifstmt * parseIfStmt(const bool text = false);
     // forStmt -> KEYWORD('for') Expr Block
-    void parseForStmt(const bool text = false);
+    forstmt * parseForStmt(const bool text = false);
     // returnStmt -> KEYWORD('return') (Expr)? SEMICOLON
-    void parseReturnStmt(const bool text = false);
+    returnstmt* parseReturnStmt(const bool text = false);
     // printStmt -> (KEYWORD('print') | KEYWORD('println')) PUNCTUATION('(') PrintArg (PUNCTUATION(',') PrintArg)* PUNCTUATION(')') SEMICOLON
-    void parsePrintStmt(const bool text = false);
+    printstmt* parsePrintStmt(const bool text = false);
     // PrintArg -> Expr | STRING
-    void parsePrintArg(const bool text = false);
+    printarg* parsePrintArg(const bool text = false);
     // ArgList -> Arg (PUNCTUATION(',') Arg)*
-    void parseArgList(const bool text = false);
+    std::vector<arg*> parseArgList(const bool text = false);
     // Arg -> (ADDRESS)? Expr
-    void parseArg(const bool text = false);
+    arg * parseArg(const bool text = false);
 /*-------------------------EXPRESSIONS--------------------------*/
     // Expr -> OrExpr
-    void parseExpr(const bool text = false);
+    Expr* parseExpr(const bool text = false);
     // OrExpr -> AndExpr (LOGICAL('||') andExpr)*
-    void parseOrExpr(const bool text = false);
+    binaryexpr* parseOrExpr(const bool text = false);
     // AndExpr -> NotExpr (LOGICAL('&&') NotExpr)*
-    void parseAndExpr(const bool text = false);
+    binaryexpr* parseAndExpr(const bool text = false);
     // NotExpr -> LOGICAL('!') NotExpr | RelExpr
-    void parseNotExpr(const bool text = false);
+    unaryexpr* parseNotExpr(const bool text = false);
     // RelExpr -> AddExpr ((RelOp) AddExpr)*
-    void parseRelExpr(const bool text = false);
+    binaryexpr* parseRelExpr(const bool text = false);
     // RelOp -> RELATIONAL(any)
-    void parseRelOp(const bool text = false);
+    RELATIONAL parseRelOp(const bool text = false);
     // AddExpr -> MulExpr ((ARITH('+')| ARITH('-')) MulExpr)*
-    void parseAddExpr(const bool text = false);
+    binaryexpr* parseAddExpr(const bool text = false);
     // MulExpr -> UnaryExpr ((ARITH('*')| ARITH('/')| ARITH('%')) UnaryExpr)*
-    void parseMulExpr(const bool text = false);
+    binaryexpr* parseMulExpr(const bool text = false);
     // UnaryExpr -> ARITH('-') UnaryExpr | Primary
-    void parseUnaryExpr(const bool text = false);
+    unaryexpr* parseUnaryExpr(const bool text = false);
     // Primary -> INT | KEYWORD('true') | KEYWORD('false') | ID (CallExpr)? | PUNCTUATION('(') Expr PUNCTUATION(')')
-    void parsePrimary(const bool text = false);
+    Expr* parsePrimary(const bool text = false);
     // CallExpr -> PUNCTUATION('(') (ArgList)? PUNCTUATION(')')
-    void parseCallExpr(const bool text = false);  
+    call* parseCallExpr(const std::string id);  
 /*--------------------------------------------------------------*/
 
 };

@@ -1,32 +1,24 @@
 #pragma once
 
-enum class NodeKind {
-    ASTNODE,
-    PROGRAM,
-    VARDECL,
-    FUNDECL,
-    PARAMSLIST,
+enum class Kind {
     PARAM,
     BLOCK,
-    STMT,
-    SHORTDECL,
-    ASSIGNSTMT,
-    CALLSTMT,
-    IFSTMT,
-    FORSTMT,
-    RETURNSTMT,
-    PRINTSTMT,
     PRINTARG,
-    ARGLIST,
     ARG,
-    EXPR,
-    OREXPR,
-    ANDEXPR,
-    NOTEXPR,
-    RELEXPR,
-    RELOP,
-    ADDEXPR,
-    MULEXPR,
+//STMT,
+    VARDECL,
+    FUNDECL,
+    SHORTDECL,
+    ASSIGN,
+    CALL,
+    IF,
+    FOR,
+    RETURN,
+    PRINT,
+// ARITH && LOG
+    BINARY_EXPR,
+// UNARY_EXPR    
     UNARYEXPR,
+// PRIMARY
     PRIMARY,
 };
