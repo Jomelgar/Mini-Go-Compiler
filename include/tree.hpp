@@ -12,12 +12,6 @@
 #include "./enums/unary.hpp"
 
 using PrimaryValue = std::variant<int64_t, bool, std::string>;
-
-// ─────────────────────────────────────────────
-//  Tabla de símbolos
-// ─────────────────────────────────────────────
-
-// Forward declarations
 class param;
 
 struct VarInfo {
@@ -26,13 +20,12 @@ struct VarInfo {
 };
 
 struct FuncInfo {
-    Type returnType;          // Type::VOID si no retorna nada
+    Type returnType = Type::VOID;
     std::vector<param*> params;
 };
 
 using TableValue = std::variant<VarInfo, FuncInfo>;
 
-// Stack de scopes: global → ... → local
 struct Scope {
     std::vector<std::unordered_map<std::string, TableValue>> scopes;
 
@@ -44,39 +37,35 @@ struct Scope {
         scopes.pop_back();
     }
 
-    // Declara en el scope actual; lanza si ya existe en ese mismo scope
+    bool isGlobal() const { return scopes.size() == 1; }
+
     void declare(const std::string& id, TableValue val) {
         if (scopes.back().count(id))
             throw std::runtime_error(std::format("'{}' ya fue declarado en este scope", id));
         scopes.back()[id] = val;
     }
 
-    // Busca de adentro hacia afuera; nullptr si no existe
     TableValue* lookup(const std::string& id) {
         for (auto it = scopes.rbegin(); it != scopes.rend(); ++it)
             if (it->count(id)) return &(*it)[id];
         return nullptr;
     }
 
-    // Retorna el tipo de retorno de la función que estamos analizando (último scope de función)
-    // Se guarda con la clave especial "__return__"
     Type currentReturnType() {
         for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
-            if (it->count("__return__")) {
-                return std::get<VarInfo>((*it)["__return__"]).type;
+            if (it->count("0return")) {
+                return std::get<VarInfo>((*it)["0return"]).type;
             }
         }
         return Type::VOID;
     }
 
     void setReturnType(Type t) {
-        scopes.back()["__return__"] = VarInfo{t, false};
+        scopes.back()["0return"] = VarInfo{t, false};
     }
 };
 
-// ─────────────────────────────────────────────
-//  Nodos AST
-// ─────────────────────────────────────────────
+
 
 class ASTNode {
 public:

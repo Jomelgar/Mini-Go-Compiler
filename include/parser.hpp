@@ -84,21 +84,21 @@ private:
     // Expr -> OrExpr
     Expr* parseExpr(const bool text = false);
     // OrExpr -> AndExpr (LOGICAL('||') andExpr)*
-    binaryexpr* parseOrExpr(const bool text = false);
+    Expr* parseOrExpr(const bool text = false);
     // AndExpr -> NotExpr (LOGICAL('&&') NotExpr)*
-    binaryexpr* parseAndExpr(const bool text = false);
+    Expr* parseAndExpr(const bool text = false);
     // NotExpr -> LOGICAL('!') NotExpr | RelExpr
-    unaryexpr* parseNotExpr(const bool text = false);
+    Expr* parseNotExpr(const bool text = false);
     // RelExpr -> AddExpr ((RelOp) AddExpr)*
-    binaryexpr* parseRelExpr(const bool text = false);
+    Expr* parseRelExpr(const bool text = false);
     // RelOp -> RELATIONAL(any)
     RELATIONAL parseRelOp(const bool text = false);
     // AddExpr -> MulExpr ((ARITH('+')| ARITH('-')) MulExpr)*
-    binaryexpr* parseAddExpr(const bool text = false);
+    Expr* parseAddExpr(const bool text = false);
     // MulExpr -> UnaryExpr ((ARITH('*')| ARITH('/')| ARITH('%')) UnaryExpr)*
-    binaryexpr* parseMulExpr(const bool text = false);
+    Expr* parseMulExpr(const bool text = false);
     // UnaryExpr -> ARITH('-') UnaryExpr | Primary
-    unaryexpr* parseUnaryExpr(const bool text = false);
+    Expr* parseUnaryExpr(const bool text = false);
     // Primary -> INT | KEYWORD('true') | KEYWORD('false') | ID (CallExpr)? | PUNCTUATION('(') Expr PUNCTUATION(')')
     Expr* parsePrimary(const bool text = false);
     // CallExpr -> PUNCTUATION('(') (ArgList)? PUNCTUATION(')')

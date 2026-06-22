@@ -365,7 +365,7 @@ Expr *Parser::parseExpr(const bool text) {
 }
 
 // OrExpr -> AndExpr (LOGICAL('||') AndExpr)*
-binaryexpr *Parser::parseOrExpr(const bool text) {
+Expr *Parser::parseOrExpr(const bool text) {
     Expr *left = parseAndExpr(text);
     RELATIONAL op = RELATIONAL::EMPTY;
     Expr *right = nullptr;
@@ -377,15 +377,11 @@ binaryexpr *Parser::parseOrExpr(const bool text) {
         left = new binaryexpr(op, left, right);
     }
 
-    // Si nunca hubo operador, envuelve igual para mantener tipo uniforme
-    if (op == RELATIONAL::EMPTY)
-        return new binaryexpr(RELATIONAL::EMPTY, left, nullptr);
-
-    return static_cast<binaryexpr *>(left);
+    return left;
 }
 
 // AndExpr -> NotExpr (LOGICAL('&&') NotExpr)*
-binaryexpr *Parser::parseAndExpr(const bool text) {
+Expr *Parser::parseAndExpr(const bool text) {
     Expr *left = parseNotExpr(text);
     RELATIONAL op = RELATIONAL::EMPTY;
     Expr *right = nullptr;
@@ -397,25 +393,21 @@ binaryexpr *Parser::parseAndExpr(const bool text) {
         left = new binaryexpr(op, left, right);
     }
 
-    if (op == RELATIONAL::EMPTY)
-        return new binaryexpr(RELATIONAL::EMPTY, left, nullptr);
-
-    return static_cast<binaryexpr *>(left);
+    return left;
 }
 
 // NotExpr -> LOGICAL('!') NotExpr | RelExpr
-unaryexpr *Parser::parseNotExpr(const bool text) {
+Expr *Parser::parseNotExpr(const bool text) {
     if (equal(Token::LOGICAL, "!")) {
         consume(text);
         Expr *expr = parseNotExpr(text);
         return new unaryexpr(UNARY::NOT, expr);
     }
-    Expr *expr = parseRelExpr(text);
-    return new unaryexpr(UNARY::EMPTY, expr);
+    return parseRelExpr(text);
 }
 
 // RelExpr -> AddExpr (RelOp AddExpr)*
-binaryexpr *Parser::parseRelExpr(const bool text) {
+Expr *Parser::parseRelExpr(const bool text) {
     Expr *left = parseAddExpr(text);
     RELATIONAL op = RELATIONAL::EMPTY;
     Expr *right = nullptr;
@@ -425,11 +417,7 @@ binaryexpr *Parser::parseRelExpr(const bool text) {
         right = parseAddExpr(text);
         left = new binaryexpr(op, left, right);
     }
-
-    if (op == RELATIONAL::EMPTY)
-        return new binaryexpr(RELATIONAL::EMPTY, left, nullptr);
-
-    return static_cast<binaryexpr *>(left);
+    return left;
 }
 
 // RelOp -> RELATIONAL(any)
@@ -440,7 +428,7 @@ RELATIONAL Parser::parseRelOp(const bool text) {
 }
 
 // AddExpr -> MulExpr (('+' | '-') MulExpr)*
-binaryexpr *Parser::parseAddExpr(const bool text) {
+Expr *Parser::parseAddExpr(const bool text) {
     Expr *left = parseMulExpr(text);
     RELATIONAL op = RELATIONAL::EMPTY;
     Expr *right = nullptr;
@@ -451,15 +439,11 @@ binaryexpr *Parser::parseAddExpr(const bool text) {
         right = parseMulExpr(text);
         left = new binaryexpr(op, left, right);
     }
-
-    if (op == RELATIONAL::EMPTY)
-        return new binaryexpr(RELATIONAL::EMPTY, left, nullptr);
-
-    return static_cast<binaryexpr *>(left);
+    return left;
 }
 
 // MulExpr -> UnaryExpr (('*' | '/' | '%') UnaryExpr)*
-binaryexpr *Parser::parseMulExpr(const bool text) {
+Expr * Parser::parseMulExpr(const bool text) {
     Expr *left = parseUnaryExpr(text);
     RELATIONAL op = RELATIONAL::EMPTY;
     Expr *right = nullptr;
@@ -471,21 +455,17 @@ binaryexpr *Parser::parseMulExpr(const bool text) {
         left = new binaryexpr(op, left, right);
     }
 
-    if (op == RELATIONAL::EMPTY)
-        return new binaryexpr(RELATIONAL::EMPTY, left, nullptr);
-
-    return static_cast<binaryexpr *>(left);
+    return left;
 }
 
 // UnaryExpr -> ARITH('-') UnaryExpr | Primary
-unaryexpr *Parser::parseUnaryExpr(const bool text) {
+Expr *Parser::parseUnaryExpr(const bool text) {
     if (equal(Token::ARITH, "-")) {
         consume(text);
         Expr *expr = parseUnaryExpr(text);
         return new unaryexpr(UNARY::MINUS, expr);
     }
-    Expr *expr = parsePrimary(text);
-    return new unaryexpr(UNARY::EMPTY, expr);
+    return parsePrimary();
 }
 
 // Primary -> INT | KEYWORD('true') | KEYWORD('false') | ID (CallExpr)? | PUNCTUATION('(') Expr PUNCTUATION(')')
@@ -501,11 +481,9 @@ Expr *Parser::parsePrimary(const bool text) {
         consume(text);
         return new primary(false, Type::BOOL);
     } else if (equal(Token::ID)) {
-        // FIX: guarda el id en value para que typeCheck pueda hacer lookup
         std::string id = current.txt;
         consume(text);
         if (equal(Token::PUNCTUATIONAL, "(")) {
-            // Es una llamada a función como expresión
             return parseCallExpr(id);
         }
         return new primary(id, Type::ID);

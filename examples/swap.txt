@@ -1,12 +1,12 @@
 func swap(ref a int, ref b int) {
-var tmp int = a ;
-a = b ;
-b = tmp ;
+    var tmp int = a ;
+    a = b ;
+    b = tmp ;
 }
 func main() {
-var x int = 10 ;
-var y int = 20 ;
-println("before:", x, y) ;
-swap(&x, &y) ;
-println("after:", x, y) ;
+    var x int = 10 ;
+    var y int = 20 ;
+    println("before:", x, y) ;
+    swap(&x, &y) ;
+    println("after:", x, y) ;
 }

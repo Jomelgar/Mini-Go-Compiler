@@ -2,9 +2,6 @@
 #include <iostream>
 #include <format>
 
-// ─────────────────────────────────────────────
-//  Helpers
-// ─────────────────────────────────────────────
 
 static bool isArithOp(RELATIONAL op) {
     return op == RELATIONAL::ADD || op == RELATIONAL::SUB ||
@@ -34,24 +31,13 @@ static std::string typeName(Type t) {
     }
 }
 
-// ─────────────────────────────────────────────
-//  Block
-// ─────────────────────────────────────────────
-
-// Block abre su propio scope
 void Block::typeCheck(Scope& scope) {
-    scope.push();
     for (ASTNode* s : stmts)
         s->typeCheck(scope);
-    scope.pop();
 }
 
-// ─────────────────────────────────────────────
-//  Declaraciones
-// ─────────────────────────────────────────────
-
 void vardecl::typeCheck(Scope& scope) {
-    // Verifica duplicado en scope actual
+    
     scope.declare(id, VarInfo{type, false});
 
     if (expr) {
@@ -66,21 +52,20 @@ void vardecl::typeCheck(Scope& scope) {
 }
 
 void shortdecl::typeCheck(Scope& scope) {
-    // := infiere el tipo de la expresión
     if (!expr)
         throw std::runtime_error(std::format("shortdecl '{}': expresión nula", id));
+    if(scope.isGlobal())
+        throw std::runtime_error(std::format("Uso de shor declaration en scope Global"));
 
     expr->typeCheck(scope);
 
     if (expr->type == Type::VOID)
         throw std::runtime_error(std::format("shortdecl '{}': la expresión es void", id));
 
-    // Declara la variable con el tipo inferido
     scope.declare(id, VarInfo{expr->type, false});
 }
 
 void assign::typeCheck(Scope& scope) {
-    // La variable debe existir
     TableValue* val = scope.lookup(id);
     if (!val)
         throw std::runtime_error(std::format("assign: '{}' no fue declarado", id));
@@ -98,30 +83,30 @@ void assign::typeCheck(Scope& scope) {
             id, typeName(info.type), typeName(expr->type)));
 }
 
-// ─────────────────────────────────────────────
-//  Funciones
-// ─────────────────────────────────────────────
-
 void funcdecl::typeCheck(Scope& scope) {
-    // Registra la función en el scope actual antes de entrar al bloque
-    // (permite recursión)
+    if(!scope.isGlobal())
+        throw std::runtime_error("Function inside another function");
     scope.declare(id, FuncInfo{returnType, params});
-
-    // Scope de la función
     scope.push();
     scope.setReturnType(returnType);
 
-    // Registra los parámetros como variables locales
     for (param* p : params)
         p->typeCheck(scope);
 
-    // Typecheckea el cuerpo (Block NO abre otro scope aquí,
-    // usamos directamente el scope de la función)
-    scope.push();
-    for (ASTNode* s : block->stmts)
-        s->typeCheck(scope);
-    scope.pop();
+    Type _return_ = Type::VOID;
+    for (ASTNode* s : block->stmts){
+        if(s->kind == Kind::RETURN){
+            s->typeCheck(scope);
+            Expr *returnExpr = static_cast<returnstmt*>(s)->expr;
+            if(returnExpr)
+                _return_ = returnExpr->type;
+        }else{
+            s->typeCheck(scope);
+        }
+    }
 
+    if(_return_ != returnType)
+        throw std::runtime_error("Return type mismatch");
     scope.pop();
 }
 
@@ -129,9 +114,6 @@ void param::typeCheck(Scope& scope) {
     scope.declare(id, VarInfo{type, isRef});
 }
 
-// ─────────────────────────────────────────────
-//  Call (como stmt y como expr)
-// ─────────────────────────────────────────────
 
 void call::typeCheck(Scope& scope) {
     TableValue* val = scope.lookup(id);
@@ -143,13 +125,11 @@ void call::typeCheck(Scope& scope) {
 
     FuncInfo& info = std::get<FuncInfo>(*val);
 
-    // Verifica cantidad de argumentos
     if (args.size() != info.params.size())
         throw std::runtime_error(std::format(
             "call '{}': se esperaban {} args pero se pasaron {}",
             id, info.params.size(), args.size()));
 
-    // Verifica tipo de cada argumento contra el parámetro correspondiente
     for (size_t i = 0; i < args.size(); i++) {
         args[i]->typeCheck(scope);
 
@@ -162,26 +142,21 @@ void call::typeCheck(Scope& scope) {
                 "call '{}' arg {}: se esperaba '{}' pero se pasó '{}'",
                 id, i, typeName(paramType), typeName(argType)));
 
-        // Si el param es ref, el arg debe ser un ID (lvalue)
-        if (paramIsRef && args[i]->expr->kind != Kind::PRIMARY)
+        if (paramIsRef && args[i]->expr->kind != Kind::PRIMARY){
+            std::cout << static_cast<int>(args[i]->expr->kind);
             throw std::runtime_error(std::format(
-                "call '{}' arg {}: parámetro ref requiere una variable", id, i));
-
+                "call '{}' arg {}: parametro ref requiere una variable", id, i));
+        }
         if (paramIsRef && args[i]->expr->kind == Kind::PRIMARY) {
             auto* p = static_cast<primary*>(args[i]->expr);
             if (!std::holds_alternative<std::string>(p->value))
                 throw std::runtime_error(std::format(
-                    "call '{}' arg {}: parámetro ref requiere una variable (lvalue)", id, i));
+                    "call '{}' arg {}: parametro ref requiere una variable (lvalue)", id, i));
         }
     }
 
-    // El tipo de retorno del call es el de la función
     this->type = info.returnType;
 }
-
-// ─────────────────────────────────────────────
-//  Control de flujo
-// ─────────────────────────────────────────────
 
 void ifstmt::typeCheck(Scope& scope) {
     if (cond) {
@@ -189,8 +164,8 @@ void ifstmt::typeCheck(Scope& scope) {
         if (cond->type != Type::BOOL)
             throw std::runtime_error(std::format(
                 "if: la condición debe ser bool, no '{}'", typeName(cond->type)));
-        block->typeCheck(scope);
     }
+    block->typeCheck(scope);
 
     if (elseptr)
         elseptr->typeCheck(scope);
@@ -239,22 +214,13 @@ void printarg::typeCheck(Scope& scope) {
         throw std::runtime_error("printarg: no se puede imprimir una expresión void");
 }
 
-// ─────────────────────────────────────────────
-//  Arg
-// ─────────────────────────────────────────────
 
 void arg::typeCheck(Scope& scope) {
     expr->typeCheck(scope);
-    // La validación de tipo se hace en call::typeCheck
 }
-
-// ─────────────────────────────────────────────
-//  Expresiones
-// ─────────────────────────────────────────────
 
 void primary::typeCheck(Scope& scope) {
     if (type == Type::ID) {
-        // Es una variable: busca en la tabla
         const std::string& name = std::get<std::string>(value);
         TableValue* val = scope.lookup(name);
         if (!val)
@@ -263,7 +229,6 @@ void primary::typeCheck(Scope& scope) {
             throw std::runtime_error(std::format("'{}' es una función, no una variable", name));
         this->type = std::get<VarInfo>(*val).type;
     }
-    // INT, BOOL, STRING → el tipo ya fue asignado en el constructor
 }
 
 void unaryexpr::typeCheck(Scope& scope) {
@@ -292,7 +257,6 @@ void unaryexpr::typeCheck(Scope& scope) {
 void binaryexpr::typeCheck(Scope& scope) {
     left->typeCheck(scope);
 
-    // EMPTY significa que solo hay un lado (wrap sin operador real)
     if (op == RELATIONAL::EMPTY) {
         this->type = left->type;
         return;
@@ -301,7 +265,7 @@ void binaryexpr::typeCheck(Scope& scope) {
     right->typeCheck(scope);
 
     if (isArithOp(op)) {
-        // int OP int → int
+
         if (left->type != Type::INT)
             throw std::runtime_error(std::format(
                 "operador aritmético: operando izquierdo debe ser int, no '{}'", typeName(left->type)));
@@ -311,7 +275,6 @@ void binaryexpr::typeCheck(Scope& scope) {
         this->type = Type::INT;
     }
     else if (isRelOp(op)) {
-        // int OP int → bool
         if (left->type != Type::INT)
             throw std::runtime_error(std::format(
                 "operador relacional: operando izquierdo debe ser int, no '{}'", typeName(left->type)));
@@ -321,7 +284,6 @@ void binaryexpr::typeCheck(Scope& scope) {
         this->type = Type::BOOL;
     }
     else if (isEqOp(op)) {
-        // T == T → bool  (T puede ser int o bool, pero ambos deben ser iguales)
         if (left->type != right->type)
             throw std::runtime_error(std::format(
                 "'==' / '!=': los dos lados deben ser del mismo tipo ('{}' vs '{}')",
@@ -329,7 +291,6 @@ void binaryexpr::typeCheck(Scope& scope) {
         this->type = Type::BOOL;
     }
     else if (isLogicOp(op)) {
-        // bool OP bool → bool
         if (left->type != Type::BOOL)
             throw std::runtime_error(std::format(
                 "operador lógico: operando izquierdo debe ser bool, no '{}'", typeName(left->type)));

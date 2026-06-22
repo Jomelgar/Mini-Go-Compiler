@@ -10,6 +10,7 @@ add_executable( Gol
     src/parser.cpp
     include/tree.hpp
     src/tree.cpp
+    src/interpreter.cpp
     include/enums/NodeKind.hpp
     include/enums/relational.hpp
     include/enums/unary.hpp

@@ -1,12 +1,12 @@
 var maxIter int = 100 ;
 /* IGNORE */
 func clamp(ref x int) {
-if x > maxIter {
-x = maxIter;
-}
+    if x > maxIter {
+        x = maxIter;
+    }
 }
 func main() {
-var val int = 200 ;
-clamp(&val) ;
-println("clamped:", val) ; // prints: clamped: 100
+    var val int = 200 ;
+    clamp(&val) ;
+    println("clamped:", val) ; // prints: clamped: 100
 }
